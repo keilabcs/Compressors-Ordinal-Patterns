@@ -1,0 +1,2267 @@
+---
+title: "Analysis of Two Machines from UNKNOT (SAGE Journals)"
+author: "Keila Barbosa"
+
+execute: 
+  echo: false
+  warning: false
+mainfont: "Times New Roman"
+output: 
+  pdf
+---
+
+## Packages
+
+```{r packages}
+# Load the required packages
+library(ggplot2)
+library(scales)  # For number formatting
+library(reshape2)
+library(ggthemes)
+  theme_set(theme_clean() + 
+              theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+                    text=element_text(family="serif"))
+            )
+library(extrafont)
+  loadfonts()
+library(readxl)
+library(statcomp)
+library(vtable)
+library(cowplot)
+library(cli)
+library(patchwork)
+library(openxlsx)
+library(reshape2)
+library(gridExtra)
+knitr::opts_chunk$set(echo=FALSE, messages=FALSE, warning=FALSE)
+# Detach the "tidyr" package if loaded to avoid conflicts
+if ("tidyr" %in% search()) detach("package:tidyr", unload = TRUE)
+library(keras)
+library(dplyr)  # Para manipulação de dados
+library(tidyr)  # Para remodelagem de dados
+library(caret)  # Para normalização
+library(tensorflow)
+library(e1071) # SVM
+library(writexl)
+
+```
+
+## Analysis of Two Machines from UNKNOT (B and G)
+
+One machine with a defect and one without a defect.
+
+## Goal setting
+
+\* Obtain resources for distinguishing between the good and bad machines.
+
+\* HxC plots - all vs HxC plots - all no-zero.
+
+\* Measure the Euclidean distance between as features Att3.
+
+\* Measure the Euclidean distance between as features Att6.
+
+## Analisys All Features and Dimensions
+
+```{r ReadPrecomputedBoundaries}
+
+# Linf3 <- read.table(file="../../../Documents/Alunos/Eduarda Chagas/Confidence Regions/Data/trozos/continuaN6.txt")
+# Linf3$Dimension <- 3
+# Linf3$Side <- "Lower"
+# Lsup3 <- read.table(file="../../../Documents/Alunos/Eduarda Chagas/Confidence Regions/Data/trozos/trozosN6.txt")
+# Lsup3$Dimension <- 3
+# Lsup3$Side <- "Upper"
+# 
+# Linf4 <- read.table(file="../../../Documents/Alunos/Eduarda Chagas/Confidence Regions/Data/trozos/continuaN24.txt")
+# Linf4$Dimension <- 4
+# Linf4$Side <- "Lower"
+# Lsup4 <- read.table(file="../../../Documents/Alunos/Eduarda Chagas/Confidence Regions/Data/trozos/trozosN24.txt")
+# Lsup4$Dimension <- 4
+# Lsup4$Side <- "Upper"
+# 
+# Linf5 <- read.table(file="../../../Documents/Alunos/Eduarda Chagas/Confidence Regions/Data/trozos/continuaN120.txt")
+# Linf5$Dimension <- 5
+# Linf5$Side <- "Lower"
+# Lsup5 <- read.table(file="../../../Documents/Alunos/Eduarda Chagas/Confidence Regions/Data/trozos/trozosN120.txt")
+# Lsup5$Dimension <- 5
+# Lsup5$Side <- "Upper"
+# 
+# Linf6 <- read.table(file="../../../Documents/Alunos/Eduarda Chagas/Confidence Regions/Data/trozos/continuaN720.txt")
+# Linf6$Dimension <- 6
+# Linf6$Side <- "Lower"
+# Lsup6 <- read.table(file="../../../Documents/Alunos/Eduarda Chagas/Confidence Regions/Data/trozos/trozosN720.txt")
+# Lsup6$Dimension <- 6
+# Lsup6$Side <- "Upper"
+# 
+# LinfLsup <- rbind(Linf3, Lsup3, Linf4, Lsup4, Linf5, Lsup5, Linf6, Lsup6)
+# rm(Linf3, Lsup3, Linf4, Lsup4, Linf5, Lsup5, Linf6, Lsup6)
+# # save(file="EdgesHxC.RData", LinfLsup)
+# save(file="../../../Documents/UNKNOT/Code/EdgesHxC.RData", Linf3, Lsup3, Linf4, Lsup4, Linf5, Lsup5, Linf6, Lsup6)
+
+load("EdgesHxC.RData")
+#path <- file.path("..", "Data", "EdgesHxC.RData")
+#load("path")
+
+```
+
+## Data Information
+
+-   **Attribute 1**: *ADT* (air discharge temperature)
+
+-   **Attribute 2**: *Inlet Temperature* - air intake temperature (that's pretty much the room temperature)
+
+-   **Attribute 3**: pi - internal pressure
+
+-   **Attribute 4:** pN - (system pressure, should be the same as pNloc)
+
+-   **Attribute 5**: pNloc - (system pressure (whole network)
+
+-   **Attribute 6**: oil separator pressure differential - (most indicative attribute of faults) - oil/air separator, pressure differential increases when the filter is clogged up. this element is generally replaced every second oil filter.
+
+These variables describe measurements and characteristics of an air system, and each of them can be used for analysis and monitoring of system performance or fault detection.
+
+# Analysis All Features and Dimensions with Zero
+
+## H and C values by Feature and Dimension
+
+```{r ReadAndPrepareData}
+
+# Specify the file path relative to the current working directory
+excel_file <- file.path("..", "Data", "Two Machines Report3.xlsx")
+
+# # Read data from Excel files
+# OK.Machine <- read_excel("../Data/Two Machines Report3.xlsx", sheet = "Non-Faulty Dataset.", col_names = FALSE)
+# OK.Machine$Machine <- as.factor("G")  # Assigning the factor "G" to the Machine column of non-faulty dataset
+# 
+# Faulty.Machine <- read_excel("../Data/Two Machines Report3.xlsx", sheet = "Faulty Dataset", col_names = FALSE)
+# Faulty.Machine$Machine <- as.factor("B")  # Assigning the factor "B" to the Machine column of faulty dataset
+
+# Read the non-faulty dataset from Excel without opening the data in a new window
+OK.Machine <- read_excel(excel_file, sheet = "Non-Faulty Dataset.", col_names = FALSE)
+OK.Machine$Machine <- as.factor("G")  # Assigning the factor "G" to the Machine column of non-faulty dataset
+
+# Read the faulty dataset from Excel without opening the data in a new window
+Faulty.Machine <- read_excel(excel_file, sheet = "Faulty Dataset", col_names = FALSE)
+Faulty.Machine$Machine <- as.factor("B")  # Assigning the factor "B" to the Machine column of faulty dataset
+
+# Combine the non-faulty and faulty datasets into a single dataset
+Measurements <- rbind(OK.Machine, Faulty.Machine)
+
+# Assign column names to the Measurements dataset
+names(Measurements) <- c("Att1", "Att2", "Att3", "Att4", "Att5", "Att6", "Status")
+
+data <- Measurements
+data
+```
+
+OK.Machine
+
+```{r OKMachine}
+OK.Machine
+```
+
+Faulty.Machine
+
+```{r  FaultyMachine}
+Faulty.Machine
+```
+
+Measurements
+
+```{r Measurements}
+Measurements
+```
+
+Cont Zero
+
+```{r ContZero}
+# Count of zeros in column
+num_zeros1 <- sum(Measurements$Att1 == 0)
+num_zeros2 <- sum(Measurements$Att2 == 0)
+num_zeros3 <- sum(Measurements$Att3 == 0)
+num_zeros4 <- sum(Measurements$Att4 == 0)
+num_zeros5 <- sum(Measurements$Att5 == 0)
+num_zeros6 <- sum(Measurements$Att6 == 0)
+
+# View the result
+num_zeros1
+num_zeros2
+num_zeros3
+num_zeros4
+num_zeros5
+num_zeros6
+
+```
+
+### Check the series distribution
+
+```{r gridExtraDistribution}
+
+## ATT1 GRAPHIC
+# Function to create a plot
+create_plot <- function(data, x_col, y_col, y_label, status, remove_x_scale = FALSE) {
+  p <- ggplot(data, aes(x = seq_along(.data[[x_col]]), y = .data[[y_col]], color = Status)) +
+    geom_line() +
+    labs(x = NULL, y = y_label, color = "Machine") +
+    theme_minimal() +
+    theme(legend.position = "none")  
+  
+  if (remove_x_scale) {
+    p <- p + theme(axis.title.x = element_blank(),
+                   axis.text.x = element_blank(),
+                   axis.ticks.x = element_blank())
+  }
+  
+  return(p)
+}
+
+# Filter the data for G and B status
+data_G <- subset(Measurements, Status == "G")
+data_B <- subset(Measurements, Status == "B")
+
+# Create individual plots for Att1
+plot_Att1_G <- create_plot(data_G, "Att1", "Att1", "Att1", remove_x_scale = TRUE)
+plot_Att1_B <- create_plot(data_B, "Att1", "Att1", "Att1")
+
+# Change the color of the Machine B graph to green
+plot_Att1_B <- plot_Att1_B + scale_color_manual(values = c("G" = "#FF6666", "B" = "#0099CC"))
+
+# Organize Att1 plots in a single column
+combined_plot_Att1 <- grid.arrange(
+  plot_Att1_G, plot_Att1_B,
+  ncol = 1  # Arrange in a column
+)
+
+# Display Att1's graphs
+print(combined_plot_Att1)
+
+
+## GRAFICO ATT2
+# Filtrar os dados para status G e B
+data_G <- subset(Measurements, Status == "G")
+data_B <- subset(Measurements, Status == "B")
+
+# Criar os plots individuais para Att2
+plot_Att2_G <- create_plot(data_G, "Att2", "Att2", "Att2", remove_x_scale = TRUE)
+plot_Att2_B <- create_plot(data_B, "Att2", "Att2", "Att2")
+
+# Modificar a cor do gráfico Machine B para verde
+plot_Att2_B <- plot_Att2_B + scale_color_manual(values = c("G" = "#FF6666", "B" = "#0099CC"))
+
+# Organizar os plots de Att2 em uma única coluna
+combined_plot_Att2 <- grid.arrange(
+  plot_Att2_G, plot_Att2_B,
+  ncol = 1  # Organiza em uma coluna
+)
+
+# Exibir os gráficos de Att2
+print(combined_plot_Att2)
+
+
+## GRAFICO ATT4
+# Filtrar os dados para status G e B
+data_G <- subset(Measurements, Status == "G")
+data_B <- subset(Measurements, Status == "B")
+
+# Criar os plots individuais para Att4
+plot_Att4_G <- create_plot(data_G, "Att4", "Att4", "Att4", remove_x_scale = TRUE)
+plot_Att4_B <- create_plot(data_B, "Att4", "Att4", "Att4")
+
+# Modificar a cor do gráfico Machine B para verde
+plot_Att4_B <- plot_Att4_B + scale_color_manual(values = c("G" = "#FF6666", "B" = "#0099CC"))
+
+# Organizar os plots de Att4 em uma única coluna
+combined_plot_Att4 <- grid.arrange(
+  plot_Att4_G, plot_Att4_B,
+  ncol = 1  # Organiza em uma coluna
+)
+
+# Exibir os gráficos de Att4
+print(combined_plot_Att4)
+
+
+## GRAFICO ATT5
+# Filtrar os dados para status G e B
+data_G <- subset(Measurements, Status == "G")
+data_B <- subset(Measurements, Status == "B")
+
+# Criar os plots individuais para Att5
+plot_Att5_G <- create_plot(data_G, "Att5", "Att5", "Att5", remove_x_scale = TRUE)
+plot_Att5_B <- create_plot(data_B, "Att5", "Att5", "Att5")
+
+# Modificar a cor do gráfico Machine B para verde
+plot_Att5_B <- plot_Att5_B + scale_color_manual(values = c("G" = "#FF6666", "B" = "#0099CC"))
+
+# Organizar os plots de Att5 em uma única coluna
+combined_plot_Att5 <- grid.arrange(
+  plot_Att5_G, plot_Att5_B,
+  ncol = 1  # Organiza em uma coluna
+)
+
+# Exibir os gráficos de Att5
+print(combined_plot_Att5)
+
+
+## GRAFICO ATT6
+# Filtrar os dados para status G e B
+data_G <- subset(Measurements, Status == "G")
+data_B <- subset(Measurements, Status == "B")
+
+# Criar os plots individuais para Att6
+plot_Att6_G <- create_plot(data_G, "Att6", "Att6", "Att6", remove_x_scale = TRUE)
+plot_Att6_B <- create_plot(data_B, "Att6", "Att6", "Att6")
+
+# Modificar a cor do gráfico Machine B para verde
+plot_Att6_B <- plot_Att6_B + scale_color_manual(values = c("G" = "#FF6666", "B" = "#0099CC"))
+
+# Organizar os plots de Att6 em uma única coluna
+combined_plot_Att6 <- grid.arrange(
+  plot_Att6_G, plot_Att6_B,
+  ncol = 1  # Organiza em uma coluna
+)
+
+# Exibir os gráficos de Att6
+print(combined_plot_Att6)
+
+
+## GRAFICO ATT3
+# Função para criar um plot
+create_plot <- function(data, x_col, y_col, y_label, status, remove_x_scale = FALSE) {
+  p <- ggplot(data, aes(x = seq_along(.data[[x_col]]), y = .data[[y_col]], color = Status)) +
+    geom_line() +
+    labs(x = NULL, y = y_label, color = "Machine") +
+    theme_minimal() +
+    theme(legend.position = "right")  
+  
+  if (remove_x_scale) {
+    p <- p + theme(axis.title.x = element_blank(),
+                   axis.text.x = element_blank(),
+                   axis.ticks.x = element_blank())
+  }
+  
+  return(p)
+}
+
+# Filtrar os dados para status G e B
+data_G <- subset(Measurements, Status == "G")
+data_B <- subset(Measurements, Status == "B")
+
+# Criar os plots individuais para Att3
+plot_Att3_G <- create_plot(data_G, "Att3", "Att3", "Att3", remove_x_scale = TRUE)
+plot_Att3_B <- create_plot(data_B, "Att3", "Att3", "Att3")
+
+# Modificar a cor do gráfico Machine B para verde
+plot_Att3_B <- plot_Att3_B + scale_color_manual(values = c("G" = "#FF6666", "B" = "#0099CC"))
+
+# Organizar os plots de Att3 em uma única coluna
+combined_plot_Att3 <- grid.arrange(
+  plot_Att3_G, plot_Att3_B,
+  ncol = 1  # Organiza em uma coluna
+)
+
+# Exibir os gráficos de Att3
+print(combined_plot_Att3)
+
+
+# Save the plot to a PDF file
+#ggsave("/Users/keilabarbosa/Documents/TeseKeilaBarbosa/Code/Report3KeilaScratchpad_files/figure-PDF/combined_plot_Att1.pdf, combined_plot_Att1, width = 10, height = 6)
+#ggsave("/Users/keilabarbosa/Documents/TeseKeilaBarbosa/Code/Report3KeilaScratchpad_files/figure-PDF/combined_plot_Att2.pdf", combined_plot_Att2, width = 10, height = 6)
+#ggsave("/Users/keilabarbosa/Documents/TeseKeilaBarbosa/Code/Report3KeilaScratchpad_files/figure-PDF/combined_plot_Att3.pdf", combined_plot_Att3, width = 10, height = 6)
+#ggsave("/Users/keilabarbosa/Documents/TeseKeilaBarbosa/Code/Report3KeilaScratchpad_files/figure-PDF/combined_plot_Att4.pdf", combined_plot_Att4, width = 10, height = 6)
+#ggsave("/Users/keilabarbosa/Documents/TeseKeilaBarbosa/Code/Report3KeilaScratchpad_files/figure-PDF/combined_plot_Att5.pdf", combined_plot_Att5, width = 10, height = 6)
+#ggsave("/Users/keilabarbosa/Documents/TeseKeilaBarbosa/Code/Report3KeilaScratchpad_files/figure-PDF/combined_plot_Att6.pdf", combined_plot_Att6, width = 10, height = 6)
+
+
+```
+
+### All Attributes, Distribution of Machine G and B
+
+```{r gridExtraAllDistribution}
+
+# Código para criar a primeira linha de gráficos
+combined_plot_Row1 <- grid.arrange(
+  combined_plot_Att1, combined_plot_Att2, combined_plot_Att3,
+  ncol = 3  # Organiza em três colunas
+)
+
+# Código para criar a segunda linha de gráficos
+combined_plot_Row2 <- grid.arrange(
+  combined_plot_Att4, combined_plot_Att5, combined_plot_Att6,
+  ncol = 3  # Organiza em três colunas
+)
+
+# Exibir os gráficos em uma grade de duas linhas
+combined_plot <- grid.arrange(combined_plot_Row1, combined_plot_Row2, ncol = 1)
+
+#ggsave("/Users/keilabarbosa/Documents/TeseKeilaBarbosa/Code/Report3KeilaScratchpad_files/figure-PDF/combined_plot_AllDistribuicao.pdf", combined_plot, width = 10, height = 6)
+
+```
+
+## HxC to a dataframe
+
+```{r ReadAndPrepareDataCont}
+
+# Remove the temporary datasets to free up memory
+rm(OK.Machine, Faulty.Machine)
+
+# Reshape the Measurements dataset from wide to long format using the melt function
+Measurements <- melt(Measurements, variable.name = "Feature", value.name = "Measurement", measure.vars = 1:6)
+
+# Initialize an empty dataframe HxC
+HxC <- NULL
+
+# Iterate over unique combinations of Feature, Dimension, and Status
+for (feat in unique(Measurements$Feature)) {
+  for (embed.dim in 3:6) {
+    for (mach in unique(Measurements$Status)) {
+      # Subset the Measurements dataset based on the current combination of Feature, Dimension, and Status
+      signal <- unlist(subset(Measurements, Status == mach & Feature == feat, select = "Measurement"))
+      
+      # Calculate the global complexity and append the results to the HxC dataframe
+      HxC <- rbind(HxC, c(global_complexity(x = signal, ndemb = embed.dim)[1:2], feat, mach, embed.dim))
+    }
+  }
+}
+
+
+# Convert HxC to a dataframe and assign column names
+HxC <- data.frame(HxC)
+names(HxC) <- c("H", "C", "Feature", "Machine", "Dimension")
+
+# Convert H and C columns to numeric
+HxC$H <- as.numeric(HxC$H)
+HxC$C <- as.numeric(HxC$C)
+
+# RangesH <- aggregate(HxC, FUN=range, H~Feature+Dimension)
+# RangesC <- aggregate(HxC, FUN=range, C~Feature+Dimension)
+
+# Aggregate the range of H and C values by Feature and Dimension
+RangesH <- aggregate(HxC, FUN = range, by = list(HxC$Feature, HxC$Dimension), FUNARGS = list(HxC$H))
+RangesC <- aggregate(HxC, FUN = range, by = list(HxC$Feature, HxC$Dimension), FUNARGS = list(HxC$C))
+
+head(HxC, n = 5)
+
+# # Save data HxC
+# # Nome do arquivo de saída
+# output_file <- "output_data.xlsx"
+# # Salve a tabela HxC em um arquivo XLSX
+# write_xlsx(HxC, path = output_file)
+```
+
+## Features in the $H\times C$ plane
+
+First of all, we show all the attributes (columns), dimensions (rows), and machines (colours).
+
+We create a scatterplot that shows the relationship between variables "H" and "C" based on the "HxC" dataset.
+
+The points on the graph are colored according to the "Machine" variable. In addition, lines are added to represent the lower and upper bounds as defined in the "LinfLsup" dataset.
+
+```{r AllTogether}
+# Create a scatter plot using ggplot
+# Set x as H, y as C, and color the points based on the Machine factor
+ggplot(HxC, aes(x = H, y = C, col = as.factor(Machine))) +
+
+  # Add points to the plot with shape 19 and size 2
+  geom_point(shape = 19, size = 2) +
+
+  # Set the x-axis labels to have an accuracy of 0.01
+  scale_x_continuous(labels = scales::number_format(accuracy = 0.01)) +
+
+  # Set the y-axis labels to have an accuracy of 0.01
+  scale_y_continuous(labels = scales::number_format(accuracy = 0.01)) +
+
+  # Set the title of the plot
+  ggtitle("All Attributes, Machines, and Dimensions") +
+
+  # Add lines to the plot for the lower bounds
+  geom_line(data = subset(LinfLsup, Side == "Lower"), aes(x = V1, y = V2, col = NULL), alpha = 0.3) +
+
+  # Add lines to the plot for the upper bounds
+  geom_line(data = subset(LinfLsup, Side == "Upper"), aes(x = V1, y = V2, col = NULL), alpha = 0.3) +
+
+  # Set the x-axis label as italic H
+  xlab(expression(italic(H))) +
+
+  # Set the y-axis label as italic C
+  ylab(expression(italic(C))) +
+  
+    # Set color manually for "Machine G" and let ggplot choose color for "Machine B"
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+
+  # Create facets for different combinations of Dimension and Feature, with free scaling
+  facet_grid(Dimension ~ Feature, scale = "free")
+```
+
+### Banana Region
+
+```{r BananaRegion}
+# Create the scatter plot
+plotScatter <- ggplot(HxC, aes(x = H, y = C, col = as.factor(Machine))) +
+  
+  geom_point(shape = 19, size = 2) +
+  
+  scale_x_continuous(labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(labels = scales::number_format(accuracy = 0.01)) +
+  
+  ggtitle("All Attributes, Machines, and Dimensions") +
+  
+  geom_line(data = subset(LinfLsup, Side == "Lower"), aes(x = V1, y = V2, col = NULL), alpha = 0.3) +
+  geom_line(data = subset(LinfLsup, Side == "Upper"), aes(x = V1, y = V2, col = NULL), alpha = 0.3) +
+  
+  xlab(expression(italic(H))) +
+  ylab(expression(italic(C))) +
+  
+  facet_grid(Dimension ~ Feature, scale = "free") +
+  xlim(.5, 1) +
+  # Set the limits to focus on the "banana" region
+  #coord_cartesian(xlim = c(0, 1.5)
+  
+  # Set color manually for "Machine G" and let ggplot choose color for "Machine B"
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  
+  # Remove the legend's background and border
+  theme(legend.background = element_blank(),
+        legend.box.background = element_blank(),
+        legend.box.margin = margin(0),
+        legend.position = "top") +
+
+  # Remove the "as.factor" prefix from the legend
+  labs(color = "Machine")
+
+plotScatter
+
+
+# Save the plot to a PDF file
+#ggsave("/Users/keilabarbosa/Documents/TeseKeilaBarbosa/Code/Report3KeilaScratchpad_files/figure-PDF/scatter_plot.pdf", plotScatter, width = 10, height = 6)
+
+```
+
+## Show the five time series
+
+HxC plots - all, then select a feature
+
+Plot the selected feature in all dimensions
+
+```{r AllFeatureAndDimensions}
+
+# Define um tamanho de fonte comum para todas as plots
+font_size <- 14
+
+# Create a scatter plot including all features and dimensions
+plot_all <- ggplot(HxC, aes(x = H, y = C, col = as.factor(Machine))) +
+  geom_point(shape = 19, size = 2) +
+  scale_x_continuous(labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(labels = scales::number_format(accuracy = 0.01)) +
+  ggtitle("All Features and Dimensions") +
+  # Set color manually for "Machine G" and let ggplot choose color for "Machine B"
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  # Remove the legend's background and border
+  theme(legend.background = element_blank(),
+          legend.box.background = element_blank(),
+          legend.box.margin = margin(0),
+          legend.position = "top") +
+
+  # Remove the "as.factor" prefix from the legend
+  labs(color = "Machine") +
+  facet_grid(Dimension ~ Feature, scale = "free")
+
+# Create a function to plot a specific feature in all dimensions
+plot_feature_in_dimensions <- function(feature) {
+  # Subset the HxC data for the selected feature
+  subset_data <- subset(HxC, Feature == feature)
+  
+  # Create a scatter plot for the selected feature in all dimensions
+  plot <- ggplot(subset_data, aes(x = H, y = C, col = as.factor(Machine))) +
+    geom_point(shape = 19, size = 2) +
+    scale_x_continuous(labels = scales::number_format(accuracy = 0.01)) +
+    scale_y_continuous(labels = scales::number_format(accuracy = 0.01)) +
+    ggtitle(paste("Feature:", feature)) +
+      # Set color manually for "Machine G" and let ggplot choose color for "Machine B"
+    scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+      # Remove the legend's background and border
+    theme(legend.background = element_blank(),
+          legend.box.background = element_blank(),
+          legend.box.margin = margin(0),
+          legend.position = "top") +
+
+    # Remove the "as.factor" prefix from the legend
+    labs(color = "Machine") +
+      facet_wrap(~ Dimension, scales = "free")
+  
+  return(plot)
+}
+
+# Select a specific feature to plot in all dimensions
+selected_feature <- "Att1"
+# Create plots for the selected feature in all dimensions
+plot_selected_feature <- plot_feature_in_dimensions(selected_feature)
+
+
+# Select a specific feature to plot in all dimensions
+selected_feature2 <- "Att2"
+# Create plots for the selected feature in all dimensions
+plot_selected_feature2 <- plot_feature_in_dimensions(selected_feature2)
+
+
+# Select a specific feature to plot in all dimensions
+selected_feature3 <- "Att3"
+# Create plots for the selected feature in all dimensions
+plot_selected_feature3 <- plot_feature_in_dimensions(selected_feature3)
+
+# Select a specific feature to plot in all dimensions
+selected_feature4 <- "Att4"
+# Create plots for the selected feature in all dimensions
+plot_selected_feature4 <- plot_feature_in_dimensions(selected_feature4)
+
+# Select a specific feature to plot in all dimensions
+selected_feature5 <- "Att5"
+# Create plots for the selected feature in all dimensions
+plot_selected_feature5 <- plot_feature_in_dimensions(selected_feature5)
+
+# Select a specific feature to plot in all dimensions
+selected_feature6 <- "Att6"
+# Create plots for the selected feature in all dimensions
+plot_selected_feature6 <- plot_feature_in_dimensions(selected_feature6)
+
+
+# Display the plots individually
+plot_all
+plot_selected_feature
+plot_selected_feature2
+plot_selected_feature3
+plot_selected_feature4
+plot_selected_feature5
+plot_selected_feature6
+
+# Save the plot to a PDF file
+#ggsave("/Users/keilabarbosa/Documents/Report3KeilaScratchpad_files/figure-PDF/FeatureAndDimensions.pdf", plot_all, width = 10, height = 6)
+
+```
+
+## Relationships between the "H" and "C"
+
+The graphs provide a visualization of the relationships between the "H" and "C" variables for different attributes and dimensions of the dataset.
+
+We carry on the analysis by displaying five plots: each plot shows an attribute, the four dimensions ($D\in\{3,4,5,6\}$), and the two machines (Good and Bad, each in a different colour).
+
+```{r AllFeatureAndDimensionsAtt}
+
+#| label: AllPlots
+#| layout-nrow: 3
+#| column: page
+
+# Create plot a1 for Feature "Att1"
+a1 <- ggplot(subset(HxC, Feature=="Att1"), aes(x=H, y=C, col=Machine)) +
+  geom_point(shape=19, size=2) + 
+  scale_x_continuous(labels = scales::number_format(accuracy = 0.01))  +
+  scale_y_continuous(labels = scales::number_format(accuracy = 0.01)) + 
+  ggtitle("Att1") +
+  # Set color manually for "Machine G" and let ggplot choose color for "Machine B"
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  facet_grid(~Dimension)
+
+# Create plot a2 for Feature "Att2"
+a2 <- ggplot(subset(HxC, Feature == "Att2"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 2) +
+  scale_x_continuous(labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(labels = scales::number_format(accuracy = 0.01)) +
+  ggtitle("Att2") +
+  # Set color manually for "Machine G" and let ggplot choose color for "Machine B"
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  facet_grid(~Dimension)
+
+# Create plot a3 for Feature "Att3"
+a3 <- ggplot(subset(HxC, Feature == "Att3"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 2) +
+  scale_x_continuous(labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(labels = scales::number_format(accuracy = 0.01)) +
+  ggtitle("Att3") +
+  # Set color manually for "Machine G" and let ggplot choose color for "Machine B"
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  facet_grid(~Dimension)
+
+# Create plot a4 for Feature "Att4"
+a4 <- ggplot(subset(HxC, Feature == "Att4"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 2) +
+  scale_x_continuous(labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(labels = scales::number_format(accuracy = 0.01)) +
+  ggtitle("Att4") +
+  # Set color manually for "Machine G" and let ggplot choose color for "Machine B"
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  facet_grid(~Dimension)
+
+#Create plot a5 for Feature "Att5"
+#This plot is commented out since it is not used in the final layout
+a5 <- ggplot(subset(HxC, Feature == "Att5"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 2) +
+  scale_x_continuous(labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(labels = scales::number_format(accuracy = 0.01)) +
+  ggtitle("Att5") +
+  # Set color manually for "Machine G" and let ggplot choose color for "Machine B"
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  facet_grid(~Dimension)
+
+# Create plot a6 for Feature "Att6"
+a6 <- ggplot(subset(HxC, Feature == "Att6"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 2) +
+  scale_x_continuous(labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(labels = scales::number_format(accuracy = 0.01)) +
+  ggtitle("Att6") +
+  # Set color manually for "Machine G" and let ggplot choose color for "Machine B"
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  facet_grid(~Dimension)
+
+# Uncomment the line below to create a grid of plots including a5
+# plot_grid(a1, a2, a3, a4, a5, a6, nrow = 2)
+
+# Display the plots individually
+a1 
+a2
+a3
+a4
+a5
+a6
+
+```
+
+## Relationship between the "H" and "C" variables for the "Att6" feature and "3"
+
+We produce a graph that visualizes the relationship between the "H" and "C" variables for the "Att6" feature and "3" dimension, displaying colored points, boundaries, reference lines, and custom labels for the x and y axes.
+
+It is safe to say that "Att6" is the one that best separates the machines. Also, $D=3$ looks as the most discriminative choice.
+
+```{r Attribute6AllDimension, message=FALSE, warning=FALSE}
+
+# Dimension == "3"
+ggplot(subset(HxC, Feature == "Att6" & Dimension == "3"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 3) +  # Add points to the plot with shape 19 and size 3
+  scale_x_continuous(
+    labels = scales::number_format(accuracy = 0.001),  # Format x-axis labels with an accuracy of 0.001
+    limits = RangesH[6, 3],  # Set x-axis limits based on the values in the 6th row and 3rd column of RangesH
+    expand = expansion(mult = 0.1)  # Add padding to the x-axis limits for better visualization
+  ) +
+  scale_y_continuous(
+    labels = scales::number_format(accuracy = 0.01),  # Format y-axis labels with an accuracy of 0.01
+    limits = RangesC[6, 3],  # Set y-axis limits based on the values in the 6th row and 3rd column of RangesC
+    expand = expansion(mult = 0.1)  # Add padding to the y-axis limits for better visualization
+  ) +
+  # Set color manually for "Machine G" and let ggplot choose color for "Machine B"
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  ggtitle("Attribute 6, Dimension 3, and all observations from both Machines") +  # Set the plot title
+  geom_line(
+    data = subset(LinfLsup, Side == "Lower" & Dimension == "3"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the lower limits, with transparency of 0.3
+  ) +
+  geom_line(
+    data = subset(LinfLsup, Side == "Upper" & Dimension == "3"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the upper limits, with transparency of 0.3
+  ) +
+  xlab(expression(italic(H))) +  # Set the x-axis label as italic H
+  ylab(expression(italic(C)))  # Set the y-axis label as italic C
+
+# Dimension == "4"
+ggplot(subset(HxC, Feature == "Att6" & Dimension == "4"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 3) +  # Add points to the plot with shape 19 and size 3
+  scale_x_continuous(
+    labels = scales::number_format(accuracy = 0.001),  # Format x-axis labels with an accuracy of 0.001
+    limits = RangesH[6, 3],  # Set x-axis limits based on the values in the 6th row and 3rd column of RangesH
+    expand = expansion(mult = 0.1)  # Add padding to the x-axis limits for better visualization
+  ) +
+  # Set color manually for "Machine G" and let ggplot choose color for "Machine B"
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  scale_y_continuous(
+    labels = scales::number_format(accuracy = 0.01),  # Format y-axis labels with an accuracy of 0.01
+    limits = RangesC[6, 3],  # Set y-axis limits based on the values in the 6th row and 3rd column of RangesC
+    expand = expansion(mult = 0.1)  # Add padding to the y-axis limits for better visualization
+  ) +
+  ggtitle("Attribute 6, Dimension 4, and all observations from both Machines") +  # Set the plot title
+  geom_line(
+    data = subset(LinfLsup, Side == "Lower" & Dimension == "4"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the lower limits, with transparency of 0.3
+  ) +
+  geom_line(
+    data = subset(LinfLsup, Side == "Upper" & Dimension == "4"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the upper limits, with transparency of 0.3
+  ) +
+  xlab(expression(italic(H))) +  # Set the x-axis label as italic H
+  ylab(expression(italic(C)))  # Set the y-axis label as italic C
+
+
+# Dimension == "5"
+ggplot(subset(HxC, Feature == "Att6" & Dimension == "5"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 3) +  # Add points to the plot with shape 19 and size 3
+  scale_x_continuous(
+    labels = scales::number_format(accuracy = 0.001),  # Format x-axis labels with an accuracy of 0.001
+    limits = RangesH[6, 3],  # Set x-axis limits based on the values in the 6th row and 3rd column of RangesH
+    expand = expansion(mult = 0.1)  # Add padding to the x-axis limits for better visualization
+  ) +
+  # Set color manually for "Machine G" and let ggplot choose color for "Machine B"
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  scale_y_continuous(
+    labels = scales::number_format(accuracy = 0.01),  # Format y-axis labels with an accuracy of 0.01
+    limits = RangesC[6, 3],  # Set y-axis limits based on the values in the 6th row and 3rd column of RangesC
+    expand = expansion(mult = 0.1)  # Add padding to the y-axis limits for better visualization
+  ) +
+  ggtitle("Attribute 6, Dimension 5, and all observations from both Machines") +  # Set the plot title
+  geom_line(
+    data = subset(LinfLsup, Side == "Lower" & Dimension == "5"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the lower limits, with transparency of 0.3
+  ) +
+  geom_line(
+    data = subset(LinfLsup, Side == "Upper" & Dimension == "5"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the upper limits, with transparency of 0.3
+  ) +
+  xlab(expression(italic(H))) +  # Set the x-axis label as italic H
+  ylab(expression(italic(C)))  # Set the y-axis label as italic C
+
+
+# Dimension == "6"
+ggplot(subset(HxC, Feature == "Att6" & Dimension == "6"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 3) +  # Add points to the plot with shape 19 and size 3
+  scale_x_continuous(
+    labels = scales::number_format(accuracy = 0.001),  # Format x-axis labels with an accuracy of 0.001
+    limits = RangesH[6, 3],  # Set x-axis limits based on the values in the 6th row and 3rd column of RangesH
+    expand = expansion(mult = 0.1)  # Add padding to the x-axis limits for better visualization
+  ) +
+  # Set color manually for "Machine G" and let ggplot choose color for "Machine B"
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  scale_y_continuous(
+    labels = scales::number_format(accuracy = 0.01),  # Format y-axis labels with an accuracy of 0.01
+    limits = RangesC[6, 3],  # Set y-axis limits based on the values in the 6th row and 3rd column of RangesC
+    expand = expansion(mult = 0.1)  # Add padding to the y-axis limits for better visualization
+  ) +
+  ggtitle("Attribute 6, Dimension 6, and all observations from both Machines") +  # Set the plot title
+  geom_line(
+    data = subset(LinfLsup, Side == "Lower" & Dimension == "6"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the lower limits, with transparency of 0.3
+  ) +
+  geom_line(
+    data = subset(LinfLsup, Side == "Upper" & Dimension == "6"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the upper limits, with transparency of 0.3
+  ) +
+  xlab(expression(italic(H))) +  # Set the x-axis label as italic H
+  ylab(expression(italic(C)))  # Set the y-axis label as italic C
+
+```
+
+Attribute Att6, Dimension, and all observations from both Machines.
+
+```{r Attribute6AllDimensionGrid}
+# Mostrando o grafico anterior em apenas uma imagem
+# Dimension == "3"
+plot_dim_3 <-ggplot(subset(HxC, Feature == "Att6" & Dimension == "3"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 3) +  # Add points to the plot with shape 19 and size 3
+  scale_x_continuous(
+    labels = scales::number_format(accuracy = 0.001),  # Format x-axis labels with an accuracy of 0.001
+    limits = RangesH[6, 3],  # Set x-axis limits based on the values in the 6th row and 3rd column of RangesH
+    expand = expansion(mult = 0.1)  # Add padding to the x-axis limits for better visualization
+  ) +
+    theme(legend.background = element_blank(),
+          legend.box.background = element_blank(),
+          legend.box.margin = margin(0)) +
+          
+  scale_y_continuous(
+    labels = scales::number_format(accuracy = 0.01),  # Format y-axis labels with an accuracy of 0.01
+    limits = RangesC[6, 3],  # Set y-axis limits based on the values in the 6th row and 3rd column of RangesC
+    expand = expansion(mult = 0.1)  # Add padding to the y-axis limits for better visualization
+  ) +
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  ggtitle("Att6 and D3") +  # Set the plot title
+  geom_line(
+    data = subset(LinfLsup, Side == "Lower" & Dimension == "3"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the lower limits, with transparency of 0.3
+  ) +
+  geom_line(
+    data = subset(LinfLsup, Side == "Upper" & Dimension == "3"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the upper limits, with transparency of 0.3
+  ) +
+  xlab(expression(italic(H))) +  # Set the x-axis label as italic H
+  ylab(expression(italic(C))) +  # Set the y-axis label as italic C
+  theme(legend.position = "top")  # Posiciona a legenda no topo
+
+
+# Dimension == "4"
+plot_dim_4 <-ggplot(subset(HxC, Feature == "Att6" & Dimension == "4"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 3) +  # Add points to the plot with shape 19 and size 3
+  scale_x_continuous(
+    labels = scales::number_format(accuracy = 0.001),  # Format x-axis labels with an accuracy of 0.001
+    limits = RangesH[6, 3],  # Set x-axis limits based on the values in the 6th row and 3rd column of RangesH
+    expand = expansion(mult = 0.1)  # Add padding to the x-axis limits for better visualization
+  ) +
+  theme(legend.background = element_blank(),
+        legend.box.background = element_blank(),
+        legend.box.margin = margin(0)) +
+  scale_y_continuous(
+    labels = scales::number_format(accuracy = 0.01),  # Format y-axis labels with an accuracy of 0.01
+    limits = RangesC[6, 3],  # Set y-axis limits based on the values in the 6th row and 3rd column of RangesC
+    expand = expansion(mult = 0.1)  # Add padding to the y-axis limits for better visualization
+  ) +
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  ggtitle("Att6 and D4") +  # Set the plot title
+  geom_line(
+    data = subset(LinfLsup, Side == "Lower" & Dimension == "4"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the lower limits, with transparency of 0.3
+  ) +
+  geom_line(
+    data = subset(LinfLsup, Side == "Upper" & Dimension == "4"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the upper limits, with transparency of 0.3
+  ) +
+  xlab(expression(italic(H))) +  # Set the x-axis label as italic H
+  ylab(expression(italic(C))) +  # Set the y-axis label as italic C
+  theme(legend.position = "top")  # Posiciona a legenda no topo
+
+
+# Dimension == "5"
+plot_dim_5 <-ggplot(subset(HxC, Feature == "Att6" & Dimension == "5"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 3) +  # Add points to the plot with shape 19 and size 3
+  scale_x_continuous(
+    labels = scales::number_format(accuracy = 0.001),  # Format x-axis labels with an accuracy of 0.001
+    limits = RangesH[6, 3],  # Set x-axis limits based on the values in the 6th row and 3rd column of RangesH
+    expand = expansion(mult = 0.1)  # Add padding to the x-axis limits for better visualization
+  ) +
+  theme(legend.background = element_blank(),
+        legend.box.background = element_blank(),
+        legend.box.margin = margin(0)) +
+  scale_y_continuous(
+    labels = scales::number_format(accuracy = 0.01),  # Format y-axis labels with an accuracy of 0.01
+    limits = RangesC[6, 3],  # Set y-axis limits based on the values in the 6th row and 3rd column of RangesC
+    expand = expansion(mult = 0.1)  # Add padding to the y-axis limits for better visualization
+  ) +
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  ggtitle("Att6 and D5") +  # Set the plot title
+  geom_line(
+    data = subset(LinfLsup, Side == "Lower" & Dimension == "5"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the lower limits, with transparency of 0.3
+  ) +
+  geom_line(
+    data = subset(LinfLsup, Side == "Upper" & Dimension == "5"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the upper limits, with transparency of 0.3
+  ) +
+  xlab(expression(italic(H))) +  # Set the x-axis label as italic H
+  ylab(expression(italic(C)))  +  # Set the y-axis label as italic C
+  theme(legend.position = "top")  # Posiciona a legenda no topo
+
+
+# Dimension == "6"
+plot_dim_6 <-ggplot(subset(HxC, Feature == "Att6" & Dimension == "6"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 3) +  # Add points to the plot with shape 19 and size 3
+  scale_x_continuous(
+    labels = scales::number_format(accuracy = 0.001),  # Format x-axis labels with an accuracy of 0.001
+    limits = RangesH[6, 3],  # Set x-axis limits based on the values in the 6th row and 3rd column of RangesH
+    expand = expansion(mult = 0.1)  # Add padding to the x-axis limits for better visualization
+  ) +
+  theme(legend.background = element_blank(),
+        legend.box.background = element_blank(),
+        legend.box.margin = margin(0)) +
+  scale_y_continuous(
+    labels = scales::number_format(accuracy = 0.01),  # Format y-axis labels with an accuracy of 0.01
+    limits = RangesC[6, 3],  # Set y-axis limits based on the values in the 6th row and 3rd column of RangesC
+    expand = expansion(mult = 0.1)  # Add padding to the y-axis limits for better visualization
+  ) +
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  ggtitle("Att6 and D6") +  # Set the plot title
+  geom_line(
+    data = subset(LinfLsup, Side == "Lower" & Dimension == "6"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the lower limits, with transparency of 0.3
+  ) +
+  geom_line(
+    data = subset(LinfLsup, Side == "Upper" & Dimension == "6"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the upper limits, with transparency of 0.3
+  ) +
+  xlab(expression(italic(H))) +  # Set the x-axis label as italic H
+  ylab(expression(italic(C))) +  # Set the y-axis label as italic C
+  theme(legend.position = "top")  # Posiciona a legenda no topo
+
+
+# Organize os gráficos em uma única imagem
+combined_plot <- grid.arrange(plot_dim_3, plot_dim_4, plot_dim_5, plot_dim_6, ncol = 2)
+
+# Exibir a imagem combinada
+print(combined_plot)
+
+# Legenda: Attribute, Dimension, and all observations from both Machines.
+
+# Save the plot to a PDF file
+#ggsave("/Users/keilabarbosa/Documents/Report3KeilaScratchpad_files/figure-PDF/combined_plot.pdf", combined_plot, width = 10, height = 6)
+```
+
+## Relationship between the "H" and "C" variables for the "Att3" feature and "3"
+
+```{r Attribute3AllDimension}
+# Dimension == "3"
+ggplot(subset(HxC, Feature == "Att3" & Dimension == "3"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 3) +  # Add points to the plot with shape 19 and size 3
+  scale_x_continuous(
+    labels = scales::number_format(accuracy = 0.001),  # Format x-axis labels with an accuracy of 0.001
+    limits = RangesH[6, 3],  # Set x-axis limits based on the values in the 6th row and 3rd column of RangesH
+    expand = expansion(mult = 0.1)  # Add padding to the x-axis limits for better visualization
+  ) +
+  scale_y_continuous(
+    labels = scales::number_format(accuracy = 0.01),  # Format y-axis labels with an accuracy of 0.01
+    limits = RangesC[6, 3],  # Set y-axis limits based on the values in the 6th row and 3rd column of RangesC
+    expand = expansion(mult = 0.1)  # Add padding to the y-axis limits for better visualization
+  ) +
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  ggtitle("Attribute 3, Dimension 3, and all observations from both Machines") +  # Set the plot title
+  geom_line(
+    data = subset(LinfLsup, Side == "Lower" & Dimension == "3"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the lower limits, with transparency of 0.3
+  ) +
+  geom_line(
+    data = subset(LinfLsup, Side == "Upper" & Dimension == "3"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the upper limits, with transparency of 0.3
+  ) +
+  xlab(expression(italic(H))) +  # Set the x-axis label as italic H
+  ylab(expression(italic(C)))  # Set the y-axis label as italic C
+
+# Dimension == "4"
+ggplot(subset(HxC, Feature == "Att3" & Dimension == "4"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 3) +  # Add points to the plot with shape 19 and size 3
+  scale_x_continuous(
+    labels = scales::number_format(accuracy = 0.001),  # Format x-axis labels with an accuracy of 0.001
+    limits = RangesH[6, 3],  # Set x-axis limits based on the values in the 6th row and 3rd column of RangesH
+    expand = expansion(mult = 0.1)  # Add padding to the x-axis limits for better visualization
+  ) +
+  scale_y_continuous(
+    labels = scales::number_format(accuracy = 0.01),  # Format y-axis labels with an accuracy of 0.01
+    limits = RangesC[6, 3],  # Set y-axis limits based on the values in the 6th row and 3rd column of RangesC
+    expand = expansion(mult = 0.1)  # Add padding to the y-axis limits for better visualization
+  ) +
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  ggtitle("Attribute 3, Dimension 4, and all observations from both Machines") +  # Set the plot title
+  geom_line(
+    data = subset(LinfLsup, Side == "Lower" & Dimension == "4"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the lower limits, with transparency of 0.3
+  ) +
+  geom_line(
+    data = subset(LinfLsup, Side == "Upper" & Dimension == "4"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the upper limits, with transparency of 0.3
+  ) +
+  xlab(expression(italic(H))) +  # Set the x-axis label as italic H
+  ylab(expression(italic(C)))  # Set the y-axis label as italic C
+
+
+# Dimension == "5"
+ggplot(subset(HxC, Feature == "Att3" & Dimension == "5"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 3) +  # Add points to the plot with shape 19 and size 3
+  scale_x_continuous(
+    labels = scales::number_format(accuracy = 0.001),  # Format x-axis labels with an accuracy of 0.001
+    limits = RangesH[6, 3],  # Set x-axis limits based on the values in the 6th row and 3rd column of RangesH
+    expand = expansion(mult = 0.1)  # Add padding to the x-axis limits for better visualization
+  ) +
+  scale_y_continuous(
+    labels = scales::number_format(accuracy = 0.01),  # Format y-axis labels with an accuracy of 0.01
+    limits = RangesC[6, 3],  # Set y-axis limits based on the values in the 6th row and 3rd column of RangesC
+    expand = expansion(mult = 0.1)  # Add padding to the y-axis limits for better visualization
+  ) +
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  ggtitle("Attribute 3, Dimension 5, and all observations from both Machines") +  # Set the plot title
+  geom_line(
+    data = subset(LinfLsup, Side == "Lower" & Dimension == "5"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the lower limits, with transparency of 0.3
+  ) +
+  geom_line(
+    data = subset(LinfLsup, Side == "Upper" & Dimension == "5"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the upper limits, with transparency of 0.3
+  ) +
+  xlab(expression(italic(H))) +  # Set the x-axis label as italic H
+  ylab(expression(italic(C)))  # Set the y-axis label as italic C
+
+
+# Dimension == "6"
+ggplot(subset(HxC, Feature == "Att3" & Dimension == "6"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 3) +  # Add points to the plot with shape 19 and size 3
+  scale_x_continuous(
+    labels = scales::number_format(accuracy = 0.001),  # Format x-axis labels with an accuracy of 0.001
+    limits = RangesH[6, 3],  # Set x-axis limits based on the values in the 6th row and 3rd column of RangesH
+    expand = expansion(mult = 0.1)  # Add padding to the x-axis limits for better visualization
+  ) +
+  scale_y_continuous(
+    labels = scales::number_format(accuracy = 0.01),  # Format y-axis labels with an accuracy of 0.01
+    limits = RangesC[6, 3],  # Set y-axis limits based on the values in the 6th row and 3rd column of RangesC
+    expand = expansion(mult = 0.1)  # Add padding to the y-axis limits for better visualization
+  ) +
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  ggtitle("Attribute 3, Dimension 6, and all observations from both Machines") +  # Set the plot title
+  geom_line(
+    data = subset(LinfLsup, Side == "Lower" & Dimension == "6"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the lower limits, with transparency of 0.3
+  ) +
+  geom_line(
+    data = subset(LinfLsup, Side == "Upper" & Dimension == "6"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the upper limits, with transparency of 0.3
+  ) +
+  xlab(expression(italic(H))) +  # Set the x-axis label as italic H
+  ylab(expression(italic(C)))  # Set the y-axis label as italic C
+```
+
+## Attribute Att3, Dimension, and all observations from both Machines.
+
+```{r Attribute3AllDimensionGrid}
+# Mostrando o grafico anterior em apenas uma imagem
+# Dimension == "3"
+plot_dim_3 <-ggplot(subset(HxC, Feature == "Att3" & Dimension == "3"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 3) +  # Add points to the plot with shape 19 and size 3
+  scale_x_continuous(
+    labels = scales::number_format(accuracy = 0.001),  # Format x-axis labels with an accuracy of 0.001
+    limits = RangesH[6, 3],  # Set x-axis limits based on the values in the 6th row and 3rd column of RangesH
+    expand = expansion(mult = 0.1)  # Add padding to the x-axis limits for better visualization
+  ) +
+  scale_y_continuous(
+    labels = scales::number_format(accuracy = 0.01),  # Format y-axis labels with an accuracy of 0.01
+    limits = RangesC[6, 3],  # Set y-axis limits based on the values in the 6th row and 3rd column of RangesC
+    expand = expansion(mult = 0.1)  # Add padding to the y-axis limits for better visualization
+  ) +
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  ggtitle("Att3 and D3") +  # Set the plot title
+  geom_line(
+    data = subset(LinfLsup, Side == "Lower" & Dimension == "3"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the lower limits, with transparency of 0.3
+  ) +
+  geom_line(
+    data = subset(LinfLsup, Side == "Upper" & Dimension == "3"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the upper limits, with transparency of 0.3
+  ) +
+  xlab(expression(italic(H))) +  # Set the x-axis label as italic H
+  ylab(expression(italic(C)))  # Set the y-axis label as italic C
+
+# Dimension == "4"
+plot_dim_4 <-ggplot(subset(HxC, Feature == "Att3" & Dimension == "4"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 3) +  # Add points to the plot with shape 19 and size 3
+  scale_x_continuous(
+    labels = scales::number_format(accuracy = 0.001),  # Format x-axis labels with an accuracy of 0.001
+    limits = RangesH[6, 3],  # Set x-axis limits based on the values in the 6th row and 3rd column of RangesH
+    expand = expansion(mult = 0.1)  # Add padding to the x-axis limits for better visualization
+  ) +
+  scale_y_continuous(
+    labels = scales::number_format(accuracy = 0.01),  # Format y-axis labels with an accuracy of 0.01
+    limits = RangesC[6, 3],  # Set y-axis limits based on the values in the 6th row and 3rd column of RangesC
+    expand = expansion(mult = 0.1)  # Add padding to the y-axis limits for better visualization
+  ) +
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  ggtitle("Att3 and D4") +  # Set the plot title
+  geom_line(
+    data = subset(LinfLsup, Side == "Lower" & Dimension == "4"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the lower limits, with transparency of 0.3
+  ) +
+  geom_line(
+    data = subset(LinfLsup, Side == "Upper" & Dimension == "4"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the upper limits, with transparency of 0.3
+  ) +
+  xlab(expression(italic(H))) +  # Set the x-axis label as italic H
+  ylab(expression(italic(C)))  # Set the y-axis label as italic C
+
+
+# Dimension == "5"
+plot_dim_5 <-ggplot(subset(HxC, Feature == "Att3" & Dimension == "5"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 3) +  # Add points to the plot with shape 19 and size 3
+  scale_x_continuous(
+    labels = scales::number_format(accuracy = 0.001),  # Format x-axis labels with an accuracy of 0.001
+    limits = RangesH[6, 3],  # Set x-axis limits based on the values in the 6th row and 3rd column of RangesH
+    expand = expansion(mult = 0.1)  # Add padding to the x-axis limits for better visualization
+  ) +
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  scale_y_continuous(
+    labels = scales::number_format(accuracy = 0.01),  # Format y-axis labels with an accuracy of 0.01
+    limits = RangesC[6, 3],  # Set y-axis limits based on the values in the 6th row and 3rd column of RangesC
+    expand = expansion(mult = 0.1)  # Add padding to the y-axis limits for better visualization
+  ) +
+  ggtitle("Att3 and D5") +  # Set the plot title
+  geom_line(
+    data = subset(LinfLsup, Side == "Lower" & Dimension == "5"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the lower limits, with transparency of 0.3
+  ) +
+  geom_line(
+    data = subset(LinfLsup, Side == "Upper" & Dimension == "5"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the upper limits, with transparency of 0.3
+  ) +
+  xlab(expression(italic(H))) +  # Set the x-axis label as italic H
+  ylab(expression(italic(C)))  # Set the y-axis label as italic C
+
+
+# Dimension == "6"
+plot_dim_6 <-ggplot(subset(HxC, Feature == "Att3" & Dimension == "6"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 3) +  # Add points to the plot with shape 19 and size 3
+  scale_x_continuous(
+    labels = scales::number_format(accuracy = 0.001),  # Format x-axis labels with an accuracy of 0.001
+    limits = RangesH[6, 3],  # Set x-axis limits based on the values in the 6th row and 3rd column of RangesH
+    expand = expansion(mult = 0.1)  # Add padding to the x-axis limits for better visualization
+  ) +
+  scale_y_continuous(
+    labels = scales::number_format(accuracy = 0.01),  # Format y-axis labels with an accuracy of 0.01
+    limits = RangesC[6, 3],  # Set y-axis limits based on the values in the 6th row and 3rd column of RangesC
+    expand = expansion(mult = 0.1)  # Add padding to the y-axis limits for better visualization
+  ) +
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  ggtitle("Att3 and D6") +  # Set the plot title
+  geom_line(
+    data = subset(LinfLsup, Side == "Lower" & Dimension == "6"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the lower limits, with transparency of 0.3
+  ) +
+  geom_line(
+    data = subset(LinfLsup, Side == "Upper" & Dimension == "6"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the upper limits, with transparency of 0.3
+  ) +
+  xlab(expression(italic(H))) +  # Set the x-axis label as italic H
+  ylab(expression(italic(C)))  # Set the y-axis label as italic C
+
+
+# Organize os gráficos em uma única imagem
+combined_plot <- grid.arrange(plot_dim_3, plot_dim_4, plot_dim_5, plot_dim_6, ncol = 2)
+
+# Exibir a imagem combinada
+print(combined_plot)
+
+# Legenda: Attribute, Dimension, and all observations from both Machines.
+```
+
+## Measure the Euclidean distance between as features Att6
+
+Euclidean Distance Analysis Results for Attribute 6
+
+`Atributo 6`
+
+By measuring Euclidean distances between points within the "banana" of the graphs for Attribute 6, we observed subtle variations in distances for different dimensions. For Dimension 3, the calculated average distance is approximately 0.0457. Then, for Dimension 4, the average distance increases slightly to about 0.0489. As the dimension increases to 5 and 6, the average distances continue to increase, recording average values of about 0.0525 and 0.0533, respectively. This upward trend in distances suggests a greater dispersion of the points on the "banana" as we move away from dimension 3.
+
+```{r EuclideanDistanceAtt6}
+# Function to calculate Euclidean distance between two points
+euclidean_distance <- function(x1, y1, x2, y2) {
+  sqrt((x2 - x1)^2 + (y2 - y1)^2)
+}
+
+# Initialize a list to store the calculated distances for each dimension
+distances_by_dimension <- list()
+
+# Loop through dimensions and calculate distances for Att6 points
+for (dim_value in unique(HxC$Dimension)) {
+  subset_data <- subset(HxC, Feature == "Att6" & Dimension == dim_value)
+  
+  distances <- vector()
+  
+  for (i in 1:(nrow(subset_data) - 1)) {
+    for (j in (i + 1):nrow(subset_data)) {
+      distance <- euclidean_distance(subset_data$H[i], subset_data$C[i], subset_data$H[j], subset_data$C[j])
+      distances <- c(distances, distance)
+    }
+  }
+  
+  distances_by_dimension[[paste("Dimension", dim_value)]] <- distances
+}
+
+# Print the calculated distances for each dimension
+for (dim_key in names(distances_by_dimension)) {
+  cat("Distances for", dim_key, ":", "\n")
+  print(distances_by_dimension[[dim_key]])
+  cat("\n")
+}
+```
+
+## Measure the Euclidean distance between as features Att3
+
+`Atributo 3`
+
+Analyzing the Euclidean distances for Attribute 3, we noticed a similar pattern. For Dimension 3, the average calculated distance is approximately 0.0093. As we move into Dimension 4, the average distance increases to about 0.0128. The trend continues, with Dimension 5 having an average distance of approximately 0.0190 and Dimension 6 having an average value of approximately 0.0235. These results indicate that the spread of points in the "banana" is more prominent in higher dimensions, where the distances between points are slightly greater.
+
+In both cases, these insights into Euclidean distances provide a deeper understanding of the relationship between attributes and dimensions, helping to identify how point spread behaves across different dimensions for each attribute.
+
+```{r EuclideanDistanceAtt3}
+# Function to calculate Euclidean distance between two points
+euclidean_distance <- function(x1, y1, x2, y2) {
+  sqrt((x2 - x1)^2 + (y2 - y1)^2)
+}
+
+# Initialize a list to store the calculated distances for each dimension
+distances_by_dimension <- list()
+
+# Loop through dimensions and calculate distances for Att6 points
+for (dim_value in unique(HxC$Dimension)) {
+  subset_data <- subset(HxC, Feature == "Att3" & Dimension == dim_value)
+  
+  distances <- vector()
+  
+  for (i in 1:(nrow(subset_data) - 1)) {
+    for (j in (i + 1):nrow(subset_data)) {
+      distance <- euclidean_distance(subset_data$H[i], subset_data$C[i], subset_data$H[j], subset_data$C[j])
+      distances <- c(distances, distance)
+    }
+  }
+  
+  distances_by_dimension[[paste("Dimension", dim_value)]] <- distances
+}
+
+# Print the calculated distances for each dimension
+for (dim_key in names(distances_by_dimension)) {
+  cat("Distances for", dim_key, ":", "\n")
+  print(distances_by_dimension[[dim_key]])
+  cat("\n")
+}
+```
+
+## Visualize the "Att3" and "Att6" attribute measurements on the "Good" and "Bad" machines
+
+We provide two separate graphs to visualize the "Att3" and "Att6" attribute measurements on the "Good" and "Bad" machines, respectively, allowing you to compare trends or patterns of measurements between machines.
+
+Before proceeding, we will check the time series.
+
+```{r Att3Att6BothMachines}
+# Define the colors
+colors <- c("G" = "#0099CC", "B" = "#FF6666")
+
+# Visualize the "Att3"
+pG <- ggplot(subset(Measurements, Status == "G" & Feature == "Att3"),
+             aes(x = 1:(dim(subset(Measurements, Status == "G" & Feature == "Att3"))[1]),
+                 y = Measurement)) +
+  geom_line(col = colors["G"]) +
+  xlab("") +
+  ggtitle("Good Machine Att3")
+
+pB <- ggplot(subset(Measurements, Status == "B" & Feature == "Att3"),
+             aes(x = 1:(dim(subset(Measurements, Status == "B" & Feature == "Att3"))[1]),
+                 y = Measurement)) +
+  geom_line(col = colors["B"]) +
+  xlab("") +
+  ggtitle("Bad Machine Att3")
+
+plot_grid(pG, pB, ncol = 1)
+
+
+# Visualize the "Att6"
+pG <- ggplot(subset(Measurements, Status == "G" & Feature == "Att6"),
+             aes(x = 1:(dim(subset(Measurements, Status == "G" & Feature == "Att6"))[1]),
+                 y = Measurement)) +
+  geom_line(col = colors["G"]) +
+  xlab("") +
+  ggtitle("Good Machine Att6")
+
+pB <- ggplot(subset(Measurements, Status == "B" & Feature == "Att6"),
+             aes(x = 1:(dim(subset(Measurements, Status == "B" & Feature == "Att6"))[1]),
+                 y = Measurement)) +
+  geom_line(col = colors["B"]) +
+  xlab("") +
+  ggtitle("Bad Machine Att6")
+
+plot_grid(pG, pB, ncol = 1)
+
+# Save the plot to a PDF file
+#ggsave("/Users/keilabarbosa/Documents/Report3KeilaScratchpad_files/figure-PDF/combined_plot.pdf", combined_plot, width = 10, height = 6)
+```
+
+# Analisys All Features and Dimensions No-Zero
+
+## H and C values by Feature and Dimension No-Zero
+
+```{r ReadAndPrepareData_NoZero}
+# Specify the file path relative to the current working directory
+excel_file <- file.path("..", "Data", "Two Machines Report3.xlsx")
+
+# Read the non-faulty dataset from Excel without opening the data in a new window
+OK.Machine <- read.xlsx(excel_file, sheet = "Non-Faulty Dataset.", colNames = FALSE)
+OK.Machine$Machine <- as.factor("G")  # Assigning the factor "G" to the Machine column of non-faulty dataset
+
+# Read the faulty dataset from Excel without opening the data in a new window
+Faulty.Machine <- read.xlsx(excel_file, sheet = "Faulty Dataset", colNames = FALSE)
+Faulty.Machine$Machine <- as.factor("B")  # Assigning the factor "B" to the Machine column of faulty dataset
+
+# Combine the non-faulty and faulty datasets into a single dataset
+Measurements <- rbind(OK.Machine, Faulty.Machine)
+```
+
+OK.Machine No-Zero
+
+```{r OK.Machine_NoZero}
+head(OK.Machine, n = 5)
+```
+
+MeasurementsNo-Zero
+
+```{r Measurements_NoZero}
+head(Measurements, n = 5)
+```
+
+## HxC to a dataframe no-Zero
+
+Count of NA values in the column.
+
+```{r ReadAndPrepareData_NoZero_Continue}
+# Assign column names to the Measurements dataset
+names(Measurements) <- c("Att1", "Att2", "Att3", "Att4", "Att5", "Att6", "Status")
+
+# Remove the temporary datasets to free up memory
+rm(OK.Machine, Faulty.Machine)
+
+# Find the maximum number of non-zero values in a column
+max_nonzero <- max(sapply(Measurements[, 1:6], function(x) sum(x != 0)))
+
+# Modify the dataframe to have all columns of the same size
+Measurements <- Measurements[1:max_nonzero, ]
+
+# Remove the zeros and replace them with NA
+Measurements[Measurements == 0] <- NA
+
+# Contagem de valores NA na coluna
+num_na1 <- sum(is.na(Measurements$Att1))
+num_na2 <- sum(is.na(Measurements$Att2))
+num_na3 <- sum(is.na(Measurements$Att3))
+num_na4 <- sum(is.na(Measurements$Att4))
+num_na5 <- sum(is.na(Measurements$Att5))
+num_na6 <- sum(is.na(Measurements$Att6))
+
+# Exibir o resultado
+num_na1
+num_na2
+num_na3
+num_na4
+num_na5
+num_na6
+
+# Reshape the Measurements dataset from wide to long format using the melt function
+Measurements <- melt(Measurements, id.vars = "Status", variable.name = "Feature", value.name = "Measurement")
+
+# Initialize an empty dataframe HxC
+HxC <- data.frame(H = numeric(), C = numeric(), Feature = character(), Machine = factor(), Dimension = numeric())
+
+
+# Detach the "tidyr" package if loaded to avoid conflicts
+if ("tidyr" %in% search()) detach("package:tidyr", unload = TRUE)
+
+# Load the required libraries
+library(dplyr)
+library(reshape2)
+library(tidyr)  # Load the tidyr package to access drop_na() function
+
+# Convert the Measurement column to numeric (if needed)
+Measurements$Measurement <- as.numeric(Measurements$Measurement)
+
+# Filter out rows with missing or NA values in the Measurement column
+Measurements <- Measurements %>%
+  drop_na(Measurement)
+
+# Filter out rows with missing or NA values in the Measurement column
+Measurements <- Measurements[!is.na(Measurements$Measurement), ]
+
+# Initialize an empty dataframe to store the results
+HxC <- data.frame(H = numeric(), C = numeric(), Feature = character(), Status = factor(), Dimension = numeric())
+
+# Iterate over unique combinations of Feature, Dimension, and Status
+for (feat in unique(Measurements$Feature)) {
+  for (embed.dim in 3:6) {
+    for (mach in unique(Measurements$Status)) {
+      # Subset the Measurements dataset based on the current combination of Feature, Dimension, and Status
+      signal <- subset(Measurements, Status == mach & Feature == feat, select = "Measurement")
+      
+      # Calculate the global complexity
+      complexity_result <- global_complexity(x = signal$Measurement, ndemb = embed.dim)
+      H_value <- complexity_result[1]
+      C_value <- complexity_result[2]
+      
+      # Append the results to the HxC dataframe
+      HxC <- rbind(HxC, data.frame(H = H_value, C = C_value, Feature = feat, Status = mach, Dimension = embed.dim))
+    }
+  }
+}
+
+# Convert HxC to a dataframe and assign column names
+HxC <- data.frame(HxC)
+names(HxC) <- c("H", "C", "Feature", "Machine", "Dimension")
+
+# Convert H and C columns to numeric
+HxC$H <- as.numeric(HxC$H)
+HxC$C <- as.numeric(HxC$C)
+
+# Aggregate the range of H and C values by Feature and Dimension
+RangesH <- aggregate(HxC, FUN = range, by = list(HxC$Feature, HxC$Dimension), FUNARGS = list(HxC$H))
+RangesC <- aggregate(HxC, FUN = range, by = list(HxC$Feature, HxC$Dimension), FUNARGS = list(HxC$C))
+
+```
+
+Measurements No-Zero Teste
+
+```{r Measurements_NoZero_Test}
+
+head(Measurements, n = 5)
+```
+
+HxC No-Zero
+
+```{r HxCNoZero}
+
+head(HxC, n = 5)
+```
+
+## Features in the $H\times C$ plane No-Zero
+
+```{r AllTogether_NoZero}
+# Create a scatter plot using ggplot
+# Set x as H, y as C, and color the points based on the Machine factor
+ggplot(HxC, aes(x = H, y = C, col = as.factor(Machine))) +
+
+  # Add points to the plot with shape 19 and size 2
+  geom_point(shape = 19, size = 2) +
+
+  # Set the x-axis labels to have an accuracy of 0.01
+  scale_x_continuous(labels = scales::number_format(accuracy = 0.01)) +
+
+  # Set the y-axis labels to have an accuracy of 0.01
+  scale_y_continuous(labels = scales::number_format(accuracy = 0.01)) +
+
+  # Set the title of the plot
+  ggtitle("All Attributes, Machines, and Dimensions No-Zero") +
+
+  # Add lines to the plot for the lower bounds
+  geom_line(data = subset(LinfLsup, Side == "Lower"), aes(x = V1, y = V2, col = NULL), alpha = 0.3) +
+
+  # Add lines to the plot for the upper bounds
+  geom_line(data = subset(LinfLsup, Side == "Upper"), aes(x = V1, y = V2, col = NULL), alpha = 0.3) +
+
+  # Set the x-axis label as italic H
+  xlab(expression(italic(H))) +
+
+  # Set the y-axis label as italic C
+  ylab(expression(italic(C))) +
+
+  # Create facets for different combinations of Dimension and Feature, with free scaling
+  facet_grid(Dimension ~ Feature, scale = "free")
+```
+
+### Banana Region No-Zero
+
+```{r BananaRegion_NoZero}
+
+# Create the scatter plot
+plotScatter <- ggplot(HxC, aes(x = H, y = C, col = as.factor(Machine))) +
+  
+  geom_point(shape = 19, size = 2) +
+  
+  scale_x_continuous(labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(labels = scales::number_format(accuracy = 0.01)) +
+  
+  ggtitle("All Attributes, Machines, and Dimensions No-Zero") +
+  
+  geom_line(data = subset(LinfLsup, Side == "Lower"), aes(x = V1, y = V2, col = NULL), alpha = 0.3) +
+  geom_line(data = subset(LinfLsup, Side == "Upper"), aes(x = V1, y = V2, col = NULL), alpha = 0.3) +
+  
+  xlab(expression(italic(H))) +
+  ylab(expression(italic(C))) +
+  
+  facet_grid(Dimension ~ Feature, scale = "free") +
+  xlim(.5, 1) +
+  # Set the limits to focus on the "banana" region
+  #coord_cartesian(xlim = c(0, 1.5)
+  
+  # Set color manually for "Machine G" and let ggplot choose color for "Machine B"
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  
+  # Remove the legend's background and border
+  theme(legend.background = element_blank(),
+        legend.box.background = element_blank(),
+        legend.box.margin = margin(0),
+        legend.position = "top") +
+
+  # Remove the "as.factor" prefix from the legend
+  labs(color = "Machine")
+
+plotScatter
+
+# Save the plot to a PDF file
+#ggsave("/Users/keilabarbosa/Documents/Report3KeilaScratchpad_files/figure-PDF/scatter_plotNoZero.pdf", plotScatter, width = 10, height = 6)
+
+```
+
+## Show the five time series No-Zero
+
+HxC plots - all, then select a feature No-Zero
+
+Plot the selected feature in all dimensions No-Zero
+
+```{r AllFeatureAndDimensions_NoZero}
+# Define um tamanho de fonte comum para todas as plots
+font_size <- 14
+
+# Create a scatter plot including all features and dimensions
+plot_all <- ggplot(HxC, aes(x = H, y = C, col = as.factor(Machine))) +
+  geom_point(shape = 19, size = 2) +
+  scale_x_continuous(labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(labels = scales::number_format(accuracy = 0.01)) +
+  ggtitle("All Features and Dimensions No-Zero") +
+  # Set color manually for "Machine G" and let ggplot choose color for "Machine B"
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  # Remove the legend's background and border
+  theme(legend.background = element_blank(),
+          legend.box.background = element_blank(),
+          legend.box.margin = margin(0),
+          legend.position = "top") +
+
+  # Remove the "as.factor" prefix from the legend
+  labs(color = "Machine") +
+  facet_grid(Dimension ~ Feature, scale = "free")
+
+# Create a function to plot a specific feature in all dimensions
+plot_feature_in_dimensions <- function(feature) {
+  # Subset the HxC data for the selected feature
+  subset_data <- subset(HxC, Feature == feature)
+  
+  # Create a scatter plot for the selected feature in all dimensions
+  plot <- ggplot(subset_data, aes(x = H, y = C, col = as.factor(Machine))) +
+    geom_point(shape = 19, size = 2) +
+    scale_x_continuous(labels = scales::number_format(accuracy = 0.01)) +
+    scale_y_continuous(labels = scales::number_format(accuracy = 0.01)) +
+    ggtitle(paste("Feature:", feature)) +
+      # Set color manually for "Machine G" and let ggplot choose color for "Machine B"
+    scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+      # Remove the legend's background and border
+    theme(legend.background = element_blank(),
+          legend.box.background = element_blank(),
+          legend.box.margin = margin(0),
+          legend.position = "top") +
+
+    # Remove the "as.factor" prefix from the legend
+    labs(color = "Machine") +
+      facet_wrap(~ Dimension, scales = "free")
+  
+  return(plot)
+}
+
+# Select a specific feature to plot in all dimensions
+selected_feature <- "Att1"
+# Create plots for the selected feature in all dimensions
+plot_selected_feature <- plot_feature_in_dimensions(selected_feature)
+
+
+# Select a specific feature to plot in all dimensions
+selected_feature2 <- "Att2"
+# Create plots for the selected feature in all dimensions
+plot_selected_feature2 <- plot_feature_in_dimensions(selected_feature2)
+
+
+# Select a specific feature to plot in all dimensions
+selected_feature3 <- "Att3"
+# Create plots for the selected feature in all dimensions
+plot_selected_feature3 <- plot_feature_in_dimensions(selected_feature3)
+
+# Select a specific feature to plot in all dimensions
+selected_feature4 <- "Att4"
+# Create plots for the selected feature in all dimensions
+plot_selected_feature4 <- plot_feature_in_dimensions(selected_feature4)
+
+# Select a specific feature to plot in all dimensions
+selected_feature5 <- "Att5"
+# Create plots for the selected feature in all dimensions
+plot_selected_feature5 <- plot_feature_in_dimensions(selected_feature5)
+
+# Select a specific feature to plot in all dimensions
+selected_feature6 <- "Att6"
+# Create plots for the selected feature in all dimensions
+plot_selected_feature6 <- plot_feature_in_dimensions(selected_feature6)
+
+
+# Display the plots individually
+plot_all
+plot_selected_feature
+plot_selected_feature2
+plot_selected_feature3
+plot_selected_feature4
+plot_selected_feature5
+plot_selected_feature6
+
+# Save the plot to a PDF file
+#ggsave("/Users/keilabarbosa/Documents/Report3KeilaScratchpad_files/figure-PDF/FeatureAndDimensionsNoZero.pdf", plot_all, width = 10, height = 6)
+```
+
+## Relationships between the "H" and "C" No-Zero
+
+The graphs provide a visualization of the relationships between the "H" and "C" variables for different attributes and dimensions of the dataset.
+
+We carry on the analysis by displaying five plots: each plot shows an attribute, the four dimensions ($D\in\{3,4,5,6\}$), and the two machines (Good and Bad, each in a different colour).
+
+```{r AllFeatureAndDimensionsAtt_NoZero}
+#| label: AllPlots
+#| layout-nrow: 3
+#| column: page
+
+# Create plot a1 for Feature "Att1"
+a1 <- ggplot(subset(HxC, Feature=="Att1"), aes(x=H, y=C, col=Machine)) +
+  geom_point(shape=19, size=2) + 
+  scale_x_continuous(labels = scales::number_format(accuracy = 0.01))  +
+  scale_y_continuous(labels = scales::number_format(accuracy = 0.01)) + 
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  ggtitle("Att1 No_Zero") +
+  facet_grid(~Dimension)
+
+# Create plot a2 for Feature "Att2"
+a2 <- ggplot(subset(HxC, Feature == "Att2"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 2) +
+  scale_x_continuous(labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(labels = scales::number_format(accuracy = 0.01)) +
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  ggtitle("Att2 No_Zero") +
+  facet_grid(~Dimension)
+
+# Create plot a3 for Feature "Att3"
+a3 <- ggplot(subset(HxC, Feature == "Att3"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 2) +
+  scale_x_continuous(labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(labels = scales::number_format(accuracy = 0.01)) +
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  ggtitle("Att3 No_Zero") +
+  facet_grid(~Dimension)
+
+# Create plot a4 for Feature "Att4"
+a4 <- ggplot(subset(HxC, Feature == "Att4"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 2) +
+  scale_x_continuous(labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(labels = scales::number_format(accuracy = 0.01)) +
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  ggtitle("Att4 No_Zero") +
+  facet_grid(~Dimension)
+
+#Create plot a5 for Feature "Att5"
+#This plot is commented out since it is not used in the final layout
+a5 <- ggplot(subset(HxC, Feature == "Att5"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 2) +
+  scale_x_continuous(labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(labels = scales::number_format(accuracy = 0.01)) +
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  ggtitle("Att5 No_Zero") +
+  facet_grid(~Dimension)
+
+# Create plot a6 for Feature "Att6"
+a6 <- ggplot(subset(HxC, Feature == "Att6"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 2) +
+  scale_x_continuous(labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(labels = scales::number_format(accuracy = 0.01)) +
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  ggtitle("Att6 No_Zero") +
+  facet_grid(~Dimension)
+
+# Uncomment the line below to create a grid of plots including a5
+# plot_grid(a1, a2, a3, a4, a5, a6, nrow = 2)
+
+# Display the plots individually
+a1 
+a2
+a3
+a4
+a5
+a6
+
+```
+
+## Relationship between the "H" and "C" variables for the "Att6" feature and "3" No-Zero
+
+We produce a graph that visualizes the relationship between the "H" and "C" variables for the "Att6" feature and "3" dimension, displaying colored points, boundaries, reference lines, and custom labels for the x and y axes.
+
+It is safe to say that "Att6" is the one that best separates the machines. Also, $D=3$ looks as the most discriminative choice.
+
+```{r Attribute6AllDimension_NoZero}
+# Dimension == "3"
+ggplot(subset(HxC, Feature == "Att6" & Dimension == "3"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 3) +  # Add points to the plot with shape 19 and size 3
+  scale_x_continuous(
+    labels = scales::number_format(accuracy = 0.001),  # Format x-axis labels with an accuracy of 0.001
+    limits = RangesH[6, 3],  # Set x-axis limits based on the values in the 6th row and 3rd column of RangesH
+    expand = expansion(mult = 0.1)  # Add padding to the x-axis limits for better visualization
+  ) +
+  scale_y_continuous(
+    labels = scales::number_format(accuracy = 0.01),  # Format y-axis labels with an accuracy of 0.01
+    limits = RangesC[6, 3],  # Set y-axis limits based on the values in the 6th row and 3rd column of RangesC
+    expand = expansion(mult = 0.1)  # Add padding to the y-axis limits for better visualization
+  ) +
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  ggtitle("Attribute 6, Dimension 3, and all observations from both Machines  No-Zero") +  # Set the plot title
+  geom_line(
+    data = subset(LinfLsup, Side == "Lower" & Dimension == "3"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the lower limits, with transparency of 0.3
+  ) +
+  geom_line(
+    data = subset(LinfLsup, Side == "Upper" & Dimension == "3"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the upper limits, with transparency of 0.3
+  ) +
+  xlab(expression(italic(H))) +  # Set the x-axis label as italic H
+  ylab(expression(italic(C)))  # Set the y-axis label as italic C
+
+# Dimension == "4"
+ggplot(subset(HxC, Feature == "Att6" & Dimension == "4"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 3) +  # Add points to the plot with shape 19 and size 3
+  scale_x_continuous(
+    labels = scales::number_format(accuracy = 0.001),  # Format x-axis labels with an accuracy of 0.001
+    limits = RangesH[6, 3],  # Set x-axis limits based on the values in the 6th row and 3rd column of RangesH
+    expand = expansion(mult = 0.1)  # Add padding to the x-axis limits for better visualization
+  ) +
+  scale_y_continuous(
+    labels = scales::number_format(accuracy = 0.01),  # Format y-axis labels with an accuracy of 0.01
+    limits = RangesC[6, 3],  # Set y-axis limits based on the values in the 6th row and 3rd column of RangesC
+    expand = expansion(mult = 0.1)  # Add padding to the y-axis limits for better visualization
+  ) +
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  ggtitle("Attribute 6, Dimension 4, and all observations from both Machines  No-Zero") +  # Set the plot title
+  geom_line(
+    data = subset(LinfLsup, Side == "Lower" & Dimension == "4"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the lower limits, with transparency of 0.3
+  ) +
+  geom_line(
+    data = subset(LinfLsup, Side == "Upper" & Dimension == "4"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the upper limits, with transparency of 0.3
+  ) +
+  xlab(expression(italic(H))) +  # Set the x-axis label as italic H
+  ylab(expression(italic(C)))  # Set the y-axis label as italic C
+
+
+# Dimension == "5"
+ggplot(subset(HxC, Feature == "Att6" & Dimension == "5"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 3) +  # Add points to the plot with shape 19 and size 3
+  scale_x_continuous(
+    labels = scales::number_format(accuracy = 0.001),  # Format x-axis labels with an accuracy of 0.001
+    limits = RangesH[6, 3],  # Set x-axis limits based on the values in the 6th row and 3rd column of RangesH
+    expand = expansion(mult = 0.1)  # Add padding to the x-axis limits for better visualization
+  ) +
+  scale_y_continuous(
+    labels = scales::number_format(accuracy = 0.01),  # Format y-axis labels with an accuracy of 0.01
+    limits = RangesC[6, 3],  # Set y-axis limits based on the values in the 6th row and 3rd column of RangesC
+    expand = expansion(mult = 0.1)  # Add padding to the y-axis limits for better visualization
+  ) +
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  ggtitle("Attribute 6, Dimension 5, and all observations from both Machines  No-Zero") +  # Set the plot title
+  geom_line(
+    data = subset(LinfLsup, Side == "Lower" & Dimension == "5"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the lower limits, with transparency of 0.3
+  ) +
+  geom_line(
+    data = subset(LinfLsup, Side == "Upper" & Dimension == "5"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the upper limits, with transparency of 0.3
+  ) +
+  xlab(expression(italic(H))) +  # Set the x-axis label as italic H
+  ylab(expression(italic(C)))  # Set the y-axis label as italic C
+
+
+# Dimension == "6"
+ggplot(subset(HxC, Feature == "Att6" & Dimension == "6"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 3) +  # Add points to the plot with shape 19 and size 3
+  scale_x_continuous(
+    labels = scales::number_format(accuracy = 0.001),  # Format x-axis labels with an accuracy of 0.001
+    limits = RangesH[6, 3],  # Set x-axis limits based on the values in the 6th row and 3rd column of RangesH
+    expand = expansion(mult = 0.1)  # Add padding to the x-axis limits for better visualization
+  ) +
+  scale_y_continuous(
+    labels = scales::number_format(accuracy = 0.01),  # Format y-axis labels with an accuracy of 0.01
+    limits = RangesC[6, 3],  # Set y-axis limits based on the values in the 6th row and 3rd column of RangesC
+    expand = expansion(mult = 0.1)  # Add padding to the y-axis limits for better visualization
+  ) +
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  ggtitle("Attribute 6, Dimension 6, and all observations from both Machines  No-Zero") +  # Set the plot title
+  geom_line(
+    data = subset(LinfLsup, Side == "Lower" & Dimension == "6"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the lower limits, with transparency of 0.3
+  ) +
+  geom_line(
+    data = subset(LinfLsup, Side == "Upper" & Dimension == "6"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the upper limits, with transparency of 0.3
+  ) +
+  xlab(expression(italic(H))) +  # Set the x-axis label as italic H
+  ylab(expression(italic(C)))  # Set the y-axis label as italic C
+
+```
+
+## Relationship between the "H" and "C" variables for the "Att3" feature and "3" No-Zero
+
+```{r Attribute3AllDimension_NoZero}
+# Dimension == "3"
+ggplot(subset(HxC, Feature == "Att3" & Dimension == "3"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 3) +  # Add points to the plot with shape 19 and size 3
+  scale_x_continuous(
+    labels = scales::number_format(accuracy = 0.001),  # Format x-axis labels with an accuracy of 0.001
+    limits = RangesH[6, 3],  # Set x-axis limits based on the values in the 6th row and 3rd column of RangesH
+    expand = expansion(mult = 0.1)  # Add padding to the x-axis limits for better visualization
+  ) +
+  scale_y_continuous(
+    labels = scales::number_format(accuracy = 0.01),  # Format y-axis labels with an accuracy of 0.01
+    limits = RangesC[6, 3],  # Set y-axis limits based on the values in the 6th row and 3rd column of RangesC
+    expand = expansion(mult = 0.1)  # Add padding to the y-axis limits for better visualization
+  ) +
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  ggtitle("Attribute 6, Dimension 3, and all observations from both Machines No-Zero") +  # Set the plot title
+  geom_line(
+    data = subset(LinfLsup, Side == "Lower" & Dimension == "3"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the lower limits, with transparency of 0.3
+  ) +
+  geom_line(
+    data = subset(LinfLsup, Side == "Upper" & Dimension == "3"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the upper limits, with transparency of 0.3
+  ) +
+  xlab(expression(italic(H))) +  # Set the x-axis label as italic H
+  ylab(expression(italic(C)))  # Set the y-axis label as italic C
+
+# Dimension == "4"
+ggplot(subset(HxC, Feature == "Att3" & Dimension == "4"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 3) +  # Add points to the plot with shape 19 and size 3
+  scale_x_continuous(
+    labels = scales::number_format(accuracy = 0.001),  # Format x-axis labels with an accuracy of 0.001
+    limits = RangesH[6, 3],  # Set x-axis limits based on the values in the 6th row and 3rd column of RangesH
+    expand = expansion(mult = 0.1)  # Add padding to the x-axis limits for better visualization
+  ) +
+  scale_y_continuous(
+    labels = scales::number_format(accuracy = 0.01),  # Format y-axis labels with an accuracy of 0.01
+    limits = RangesC[6, 3],  # Set y-axis limits based on the values in the 6th row and 3rd column of RangesC
+    expand = expansion(mult = 0.1)  # Add padding to the y-axis limits for better visualization
+  ) +
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  ggtitle("Attribute 6, Dimension 4, and all observations from both Machines No-Zero") +  # Set the plot title
+  geom_line(
+    data = subset(LinfLsup, Side == "Lower" & Dimension == "4"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the lower limits, with transparency of 0.3
+  ) +
+  geom_line(
+    data = subset(LinfLsup, Side == "Upper" & Dimension == "4"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the upper limits, with transparency of 0.3
+  ) +
+  xlab(expression(italic(H))) +  # Set the x-axis label as italic H
+  ylab(expression(italic(C)))  # Set the y-axis label as italic C
+
+
+# Dimension == "5"
+ggplot(subset(HxC, Feature == "Att3" & Dimension == "5"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 3) +  # Add points to the plot with shape 19 and size 3
+  scale_x_continuous(
+    labels = scales::number_format(accuracy = 0.001),  # Format x-axis labels with an accuracy of 0.001
+    limits = RangesH[6, 3],  # Set x-axis limits based on the values in the 6th row and 3rd column of RangesH
+    expand = expansion(mult = 0.1)  # Add padding to the x-axis limits for better visualization
+  ) +
+  scale_y_continuous(
+    labels = scales::number_format(accuracy = 0.01),  # Format y-axis labels with an accuracy of 0.01
+    limits = RangesC[6, 3],  # Set y-axis limits based on the values in the 6th row and 3rd column of RangesC
+    expand = expansion(mult = 0.1)  # Add padding to the y-axis limits for better visualization
+  ) +
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  ggtitle("Attribute 6, Dimension 5, and all observations from both Machines No-Zero") +  # Set the plot title
+  geom_line(
+    data = subset(LinfLsup, Side == "Lower" & Dimension == "5"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the lower limits, with transparency of 0.3
+  ) +
+  geom_line(
+    data = subset(LinfLsup, Side == "Upper" & Dimension == "5"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the upper limits, with transparency of 0.3
+  ) +
+  xlab(expression(italic(H))) +  # Set the x-axis label as italic H
+  ylab(expression(italic(C)))  # Set the y-axis label as italic C
+
+
+# Dimension == "6"
+ggplot(subset(HxC, Feature == "Att3" & Dimension == "6"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 3) +  # Add points to the plot with shape 19 and size 3
+  scale_x_continuous(
+    labels = scales::number_format(accuracy = 0.001),  # Format x-axis labels with an accuracy of 0.001
+    limits = RangesH[6, 3],  # Set x-axis limits based on the values in the 6th row and 3rd column of RangesH
+    expand = expansion(mult = 0.1)  # Add padding to the x-axis limits for better visualization
+  ) +
+  scale_y_continuous(
+    labels = scales::number_format(accuracy = 0.01),  # Format y-axis labels with an accuracy of 0.01
+    limits = RangesC[6, 3],  # Set y-axis limits based on the values in the 6th row and 3rd column of RangesC
+    expand = expansion(mult = 0.1)  # Add padding to the y-axis limits for better visualization
+  ) +
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  ggtitle("Attribute 6, Dimension 6, and all observations from both Machines No-Zero") +  # Set the plot title
+  geom_line(
+    data = subset(LinfLsup, Side == "Lower" & Dimension == "6"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the lower limits, with transparency of 0.3
+  ) +
+  geom_line(
+    data = subset(LinfLsup, Side == "Upper" & Dimension == "6"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the upper limits, with transparency of 0.3
+  ) +
+  xlab(expression(italic(H))) +  # Set the x-axis label as italic H
+  ylab(expression(italic(C)))  # Set the y-axis label as italic C
+```
+
+## Attribute Att6, Dimension, and all observations from both Machines No-Zero.
+
+```{r Attribute3AllDimensionGrid_NoZero}
+# Mostrando o grafico anterior em apenas uma imagem para os No-Zero
+# Dimension == "3"
+plot_dim_3 <-ggplot(subset(HxC, Feature == "Att6" & Dimension == "3"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 3) +  # Add points to the plot with shape 19 and size 3
+  scale_x_continuous(
+    labels = scales::number_format(accuracy = 0.001),  # Format x-axis labels with an accuracy of 0.001
+    limits = RangesH[6, 3],  # Set x-axis limits based on the values in the 6th row and 3rd column of RangesH
+    expand = expansion(mult = 0.1)  # Add padding to the x-axis limits for better visualization
+  ) +
+  scale_y_continuous(
+    labels = scales::number_format(accuracy = 0.01),  # Format y-axis labels with an accuracy of 0.01
+    limits = RangesC[6, 3],  # Set y-axis limits based on the values in the 6th row and 3rd column of RangesC
+    expand = expansion(mult = 0.1)  # Add padding to the y-axis limits for better visualization
+  ) +
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  ggtitle("Att6 and D3") +  # Set the plot title
+  geom_line(
+    data = subset(LinfLsup, Side == "Lower" & Dimension == "3"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the lower limits, with transparency of 0.3
+  ) +
+  geom_line(
+    data = subset(LinfLsup, Side == "Upper" & Dimension == "3"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the upper limits, with transparency of 0.3
+  ) +
+  xlab(expression(italic(H))) +  # Set the x-axis label as italic H
+  ylab(expression(italic(C)))  # Set the y-axis label as italic C
+
+# Dimension == "4"
+plot_dim_4 <-ggplot(subset(HxC, Feature == "Att6" & Dimension == "4"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 3) +  # Add points to the plot with shape 19 and size 3
+  scale_x_continuous(
+    labels = scales::number_format(accuracy = 0.001),  # Format x-axis labels with an accuracy of 0.001
+    limits = RangesH[6, 3],  # Set x-axis limits based on the values in the 6th row and 3rd column of RangesH
+    expand = expansion(mult = 0.1)  # Add padding to the x-axis limits for better visualization
+  ) +
+  scale_y_continuous(
+    labels = scales::number_format(accuracy = 0.01),  # Format y-axis labels with an accuracy of 0.01
+    limits = RangesC[6, 3],  # Set y-axis limits based on the values in the 6th row and 3rd column of RangesC
+    expand = expansion(mult = 0.1)  # Add padding to the y-axis limits for better visualization
+  ) +
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  ggtitle("Att6 and D4") +  # Set the plot title
+  geom_line(
+    data = subset(LinfLsup, Side == "Lower" & Dimension == "4"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the lower limits, with transparency of 0.3
+  ) +
+  geom_line(
+    data = subset(LinfLsup, Side == "Upper" & Dimension == "4"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the upper limits, with transparency of 0.3
+  ) +
+  xlab(expression(italic(H))) +  # Set the x-axis label as italic H
+  ylab(expression(italic(C)))  # Set the y-axis label as italic C
+
+
+# Dimension == "5"
+plot_dim_5 <-ggplot(subset(HxC, Feature == "Att6" & Dimension == "5"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 3) +  # Add points to the plot with shape 19 and size 3
+  scale_x_continuous(
+    labels = scales::number_format(accuracy = 0.001),  # Format x-axis labels with an accuracy of 0.001
+    limits = RangesH[6, 3],  # Set x-axis limits based on the values in the 6th row and 3rd column of RangesH
+    expand = expansion(mult = 0.1)  # Add padding to the x-axis limits for better visualization
+  ) +
+  scale_y_continuous(
+    labels = scales::number_format(accuracy = 0.01),  # Format y-axis labels with an accuracy of 0.01
+    limits = RangesC[6, 3],  # Set y-axis limits based on the values in the 6th row and 3rd column of RangesC
+    expand = expansion(mult = 0.1)  # Add padding to the y-axis limits for better visualization
+  ) +
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  ggtitle("Att6 and D5") +  # Set the plot title
+  geom_line(
+    data = subset(LinfLsup, Side == "Lower" & Dimension == "5"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the lower limits, with transparency of 0.3
+  ) +
+  geom_line(
+    data = subset(LinfLsup, Side == "Upper" & Dimension == "5"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the upper limits, with transparency of 0.3
+  ) +
+  xlab(expression(italic(H))) +  # Set the x-axis label as italic H
+  ylab(expression(italic(C)))  # Set the y-axis label as italic C
+
+
+# Dimension == "6"
+plot_dim_6 <-ggplot(subset(HxC, Feature == "Att6" & Dimension == "6"), aes(x = H, y = C, col = Machine)) +
+  geom_point(shape = 19, size = 3) +  # Add points to the plot with shape 19 and size 3
+  scale_x_continuous(
+    labels = scales::number_format(accuracy = 0.001),  # Format x-axis labels with an accuracy of 0.001
+    limits = RangesH[6, 3],  # Set x-axis limits based on the values in the 6th row and 3rd column of RangesH
+    expand = expansion(mult = 0.1)  # Add padding to the x-axis limits for better visualization
+  ) +
+  scale_y_continuous(
+    labels = scales::number_format(accuracy = 0.01),  # Format y-axis labels with an accuracy of 0.01
+    limits = RangesC[6, 3],  # Set y-axis limits based on the values in the 6th row and 3rd column of RangesC
+    expand = expansion(mult = 0.1)  # Add padding to the y-axis limits for better visualization
+  ) +
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  ggtitle("Att6 and D6") +  # Set the plot title
+  geom_line(
+    data = subset(LinfLsup, Side == "Lower" & Dimension == "6"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the lower limits, with transparency of 0.3
+  ) +
+  geom_line(
+    data = subset(LinfLsup, Side == "Upper" & Dimension == "6"),
+    aes(x = V1, y = V2, col = NULL),
+    alpha = .3  # Add lines to the plot for the upper limits, with transparency of 0.3
+  ) +
+  xlab(expression(italic(H))) +  # Set the x-axis label as italic H
+  ylab(expression(italic(C)))  # Set the y-axis label as italic C
+
+
+# Organize os gráficos em uma única imagem
+combined_plot <- grid.arrange(plot_dim_3, plot_dim_4, plot_dim_5, plot_dim_6, ncol = 2)
+
+# Exibir a imagem combinada
+print(combined_plot)
+
+# Legenda: Attribute, Dimension, and all observations from both Machines No-Zero
+```
+
+## Measure the Euclidean distance between as features Att3 No-Zero
+
+```{r EuclideanAtt3_NoZero}
+# Function to calculate Euclidean distance between two points No-Zero
+euclidean_distance <- function(x1, y1, x2, y2) {
+  sqrt((x2 - x1)^2 + (y2 - y1)^2)
+}
+
+# Initialize a list to store the calculated distances for each dimension
+distances_by_dimension <- list()
+
+# Loop through dimensions and calculate distances for Att6 points
+for (dim_value in unique(HxC$Dimension)) {
+  subset_data <- subset(HxC, Feature == "Att3" & Dimension == dim_value)
+  
+  distances <- vector()
+  
+  for (i in 1:(nrow(subset_data) - 1)) {
+    for (j in (i + 1):nrow(subset_data)) {
+      distance <- euclidean_distance(subset_data$H[i], subset_data$C[i], subset_data$H[j], subset_data$C[j])
+      distances <- c(distances, distance)
+    }
+  }
+  
+  distances_by_dimension[[paste("Dimension", dim_value)]] <- distances
+}
+
+# Print the calculated distances for each dimension
+for (dim_key in names(distances_by_dimension)) {
+  cat("Distances for", dim_key, ":", "\n")
+  print(distances_by_dimension[[dim_key]])
+  cat("\n")
+}
+```
+
+## Measure the Euclidean distance between as features Att6 No-Zero
+
+```{r EuclideanAtt6_NoZero}
+# Function to calculate Euclidean distance between two points No-Zero
+euclidean_distance <- function(x1, y1, x2, y2) {
+  sqrt((x2 - x1)^2 + (y2 - y1)^2)
+}
+
+# Initialize a list to store the calculated distances for each dimension
+distances_by_dimension <- list()
+
+# Loop through dimensions and calculate distances for Att6 points
+for (dim_value in unique(HxC$Dimension)) {
+  subset_data <- subset(HxC, Feature == "Att6" & Dimension == dim_value)
+  
+  distances <- vector()
+  
+  for (i in 1:(nrow(subset_data) - 1)) {
+    for (j in (i + 1):nrow(subset_data)) {
+      distance <- euclidean_distance(subset_data$H[i], subset_data$C[i], subset_data$H[j], subset_data$C[j])
+      distances <- c(distances, distance)
+    }
+  }
+  
+  distances_by_dimension[[paste("Dimension", dim_value)]] <- distances
+}
+
+# Print the calculated distances for each dimension
+for (dim_key in names(distances_by_dimension)) {
+  cat("Distances for", dim_key, ":", "\n")
+  print(distances_by_dimension[[dim_key]])
+  cat("\n")
+}
+```
+
+## Visualize the "Att3" and "Att6" attribute measurements on the "Good" and "Bad" machines No-Zero
+
+We provide two separate graphs to visualize the "Att3" and "Att6" attribute measurements on the "Good" and "Bad" machines, respectively, allowing you to compare trends or patterns of measurements between machines.
+
+Before proceeding, we will check the time series.
+
+```{r Att3Att6BothMachines_NoZero}
+# Visualize the "Att3"
+twocolours <- hue_pal()(2)  # Define a vector of two colors using the hue palette
+pG <- ggplot(subset(Measurements, Status == "G" & Feature == "Att3"),
+             aes(x = 1:(dim(subset(Measurements, Status == "G" & Feature == "Att3"))[1]),
+                 y = Measurement)) +  # Subset the Measurements dataset for Status "G" and Feature "Att3" and map variables to the plot
+  geom_line(col = twocolours[2]) +  # Add a line to the plot with the second color from twocolours vector
+  xlab("") +  # Set the x-axis label as an empty string
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  ggtitle("Good Machine Att3 No-Zero")  # Set the plot title as "Good Machine"
+
+pB <- ggplot(subset(Measurements, Status == "B" & Feature == "Att3"),
+             aes(x = 1:(dim(subset(Measurements, Status == "B" & Feature == "Att3"))[1]),
+                 y = Measurement)) +  # Subset the Measurements dataset for Status "B" and Feature "Att3" and map variables to the plot
+  geom_line(col = twocolours[1]) +  # Add a line to the plot with the first color from twocolours vector
+  xlab("") +  # Set the x-axis label as an empty string
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  ggtitle("Bad Machine Att3 No-Zero")  # Set the plot title as "Bad Machine"
+
+plot_grid(pG, pB, ncol = 1)  # Create a grid of plots with pG and pB, arranging them in a single column
+
+
+# Visualize the "Att6"
+twocolours <- hue_pal()(2)  # Define a vector of two colors using the hue palette
+pG <- ggplot(subset(Measurements, Status == "G" & Feature == "Att6"),
+             aes(x = 1:(dim(subset(Measurements, Status == "G" & Feature == "Att6"))[1]),
+                 y = Measurement)) +  # Subset the Measurements dataset for Status "G" and Feature "Att6" and map variables to the plot
+  geom_line(col = twocolours[2]) +  # Add a line to the plot with the second color from twocolours vector
+  xlab("") +  # Set the x-axis label as an empty string
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  ggtitle("Good Machine Att6 No-Zero")  # Set the plot title as "Good Machine"
+
+pB <- ggplot(subset(Measurements, Status == "B" & Feature == "Att6"),
+             aes(x = 1:(dim(subset(Measurements, Status == "B" & Feature == "Att6"))[1]),
+                 y = Measurement)) +  # Subset the Measurements dataset for Status "B" and Feature "Att6" and map variables to the plot
+  geom_line(col = twocolours[1]) +  # Add a line to the plot with the first color from twocolours vector
+  xlab("") +  # Set the x-axis label as an empty string
+  scale_color_manual(values = c("G" = "#0099CC", "B" = "#FF6666")) +
+  ggtitle("Bad Machine Att6 No-Zero")  # Set the plot title as "Bad Machine"
+
+plot_grid(pG, pB, ncol = 1)  # Create a grid of plots with pG and pB, arranging them in a single column
+```
+
